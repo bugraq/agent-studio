@@ -264,6 +264,6 @@ class JointEvaluatorWithRef:
         }
         return re.sub(
             r"\{\{(question|answer_match|actual_answer)\}\}",
-            lambda match: values[match.group(1)],
+            lambda match: values.get(match.group(1), match.group(0)),
             self.access_answer_prompt,
         )

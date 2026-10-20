@@ -17,6 +17,9 @@ from agent_builder.prompt.tune.joint_evaluator import JointEvaluatorWithRef
 def evaluator():
     instance = object.__new__(JointEvaluatorWithRef)
     instance.access_answer_prompt = "Question: {{question}}\nCandidate: {{answer_match}}\nReference: {{actual_answer}}"
+    instance.handle_inference_retry = Mock(
+        return_value={"content": '```json\n{"result": true, "reason": "correct"}\n```'}
+    )
     return instance
 
 
@@ -36,7 +39,8 @@ def evaluator():
     ],
 )
 def test_rendering_preserves_field_contents(evaluator, question, candidate, reference):
-    result = evaluator._format_prompt_template(question, candidate, reference)
+    assert evaluator.compare_llm(question, reference, candidate) == (1, "correct")
+    result = evaluator.handle_inference_retry.call_args.args[0]
 
     assert result == (
         f"Question: {question}\nCandidate: {candidate}\nReference: {reference}"
@@ -48,10 +52,11 @@ def test_repeated_template_fields_and_unknown_markers(evaluator):
         "{{actual_answer}}|{{answer_match}}|{{question}}|{{question}}|{{unknown}}"
     )
 
+    assert evaluator.compare_llm(
+        "{{answer_match}}", "reference", "{{actual_answer}}"
+    ) == (1, "correct")
     assert (
-        evaluator._format_prompt_template(
-            "{{answer_match}}", "{{actual_answer}}", "reference"
-        )
+        evaluator.handle_inference_retry.call_args.args[0]
         == "reference|{{actual_answer}}|{{answer_match}}|{{answer_match}}|{{unknown}}"
     )
 
